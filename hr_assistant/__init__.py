@@ -7,12 +7,47 @@ from utils import LLMHelper
 
 db = Database()
 
+
 added, updated, removed = DocumentProcessor.process_documents(db)
 print(f"Document sync complete: {added} added, {updated} updated, {removed} removed")
+
+@cl.action_callback("db_stats")
+async def on_action(action: cl.Action):
+    db_info = db.get_stats()
+    response = await LLMHelper.get_db_stats(db_info)
+    await cl.Message(response).send()
+
+@cl.action_callback("db_reindex")
+async def on_action(action: cl.Action):
+    added, updated, removed = DocumentProcessor.process_documents(db)
+    message = f"DB reindicizzato con successo. Document sync complete: {added} added, {updated} updated, {removed} removed"
+    await cl.Message(message).send()
+
+@cl.action_callback("say_hello")
+async def on_action(action: cl.Action):
+    action = action.payload["value"]
+    await cl.Message(f"Hello {action}").send()
 
 @cl.on_chat_start
 async def start():
 
+    actions = [
+        cl.Action(
+            name="db_stats",
+            icon="mouse-pointer-click",
+            payload={"value": "db_stats"},
+            label="Statistiche Database",
+        ),
+        cl.Action(
+            name="db_reindex",
+            icon="mouse-pointer-click",
+            payload={"value": "db_reindex"},
+            label="Reindex Database",
+        )
+    ]
+
+    await cl.Message(content="Informazioni del sistema:", actions=actions).send()
+    
     cl.user_session.set(
         "messages",
         [
