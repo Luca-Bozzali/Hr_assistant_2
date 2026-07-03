@@ -35,7 +35,9 @@ class DocumentProcessor:
         ids = []
 
         with open(file_path, "r") as file:
-            chunks = SemanticChunking.chunk_it(txt) 
+            txt = file.read()
+            sc = SemanticChunking()
+            chunks = sc.chunk_text(txt)
             file_metadata = DocumentProcessor.get_document_metadata(file_path)
 
             for chunk in chunks:

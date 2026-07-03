@@ -5,50 +5,41 @@ from sklearn.metrics.pairwise import cosine_similarity
 from config import Config
 
 class SemanticChunking:
-    def calculate_cosine_distances(sentences):
-        distances = []
-        for i in range(len(sentences) - 1):
-            embedding_current = sentences[i]["combined_sentence_embedding"]
-            embedding_next = sentences[i + 1]["combined_sentence_embedding"]
+    def __init__(self, breakpoint_percentile=95, buffer_size=1):
+        self.embeddings = OpenAIEmbeddings(openai_api_key=Config.OPENAI_KEY)
+        self.breakpoint_percentile = breakpoint_percentile
+        self.buffer_size = buffer_size
 
-            similarity = cosine_similarity([embedding_current], [embedding_next])[0][0]
+    def _process_sentences(self, text):
+      
+        sentences = [
+            {"sentence": s, "index": i} for i, s in enumerate(re.split(r"(?<=[.?!])\s+", text))
+        ]
 
-            distance = 1 - similarity
-
-            distances.append(distance)
-
-            sentences[i]["distance_to_next"] = distance
-
-        return distances, sentences
-
-    def combine_sentences(sentences, buffer_size=1):
-
-        for i in range(len(sentences)):
-
-            combined_sentence = ""
-
-            for j in range(i - buffer_size, i):
-
-                if j >= 0:
-
-                    combined_sentence += sentences[j]["sentence"] + " "
-
-
-            combined_sentence += sentences[i]["sentence"]
-
-
-            for j in range(i + 1, i + 1 + buffer_size):
-
-                if j < len(sentences):
-
-                    combined_sentence += " " + sentences[j]["sentence"]
-
-            sentences[i]["combined_sentence"] = combined_sentence
+        for i, current in enumerate(sentences):
+            context_range = range(
+                max(0, i - self.buffer_size),
+                min(len(sentences), i + self.buffer_size + 1),
+            )
+            current["combined_sentence"] = " ".join(
+                sentences[j]["sentence"] for j in context_range
+            )
 
         return sentences
 
-    @staticmethod
-    def chunk_it(txt):
+    def _calculate_distances(self, sentences):
+        embeddings = self.embeddings.embed_documents(
+            [s["combined_sentence"] for s in sentences]
+        )
+
+        distances = []
+        for i in range(len(sentences) - 1):
+            distance = 1 - cosine_similarity([embeddings[i]], [embeddings[i + 1]])[0][0]
+            distances.append(distance)
+
+        return distances
+
+    def chunk_text(self, text):
 
         single_sentences_list = re.split(r"(?<=[.?!])\s+", txt)
         sentences = [
