@@ -3,7 +3,7 @@ import uuid
 import hashlib
 from datetime import datetime
 from config import Config
-
+from semantic_chunking import SemanticChunking
 
 class DocumentProcessor:
 
@@ -11,8 +11,7 @@ class DocumentProcessor:
     def read_first_lines(file_path, n_lines=15):
         with open(file_path, "r") as file:
             return [line.strip() for line, _ in zip(file, range(n_lines))]
-
-    
+   
     @staticmethod
     def get_file_hash(file_path):
         hash_md5 = hashlib.md5()
@@ -36,7 +35,7 @@ class DocumentProcessor:
         ids = []
 
         with open(file_path, "r") as file:
-            chunks = file.read().replace("\n", ".").split("### ")
+            chunks = SemanticChunking.chunk_it(txt) 
             file_metadata = DocumentProcessor.get_document_metadata(file_path)
 
             for chunk in chunks:
@@ -55,7 +54,6 @@ class DocumentProcessor:
             )
             for f in os.listdir(Config.DOCUMENTS_DIR) if f.endswith(".txt")
         }
-        print("Current files in directory:", current_files)
 
         existing_files = db.get_tracked_files()
 

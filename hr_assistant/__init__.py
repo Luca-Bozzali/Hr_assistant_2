@@ -23,11 +23,6 @@ async def on_action(action: cl.Action):
     message = f"DB reindicizzato con successo. Document sync complete: {added} added, {updated} updated, {removed} removed"
     await cl.Message(message).send()
 
-@cl.action_callback("say_hello")
-async def on_action(action: cl.Action):
-    action = action.payload["value"]
-    await cl.Message(f"Hello {action}").send()
-
 @cl.on_chat_start
 async def start():
 
