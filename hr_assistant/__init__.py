@@ -8,7 +8,8 @@ from utils import LLMHelper
 db = Database()
 
 
-added, updated, removed = DocumentProcessor.process_documents(db)
+dp = DocumentProcessor()
+added, updated, removed = dp.process_documents(db)
 print(f"Document sync complete: {added} added, {updated} updated, {removed} removed")
 
 @cl.action_callback("db_stats")

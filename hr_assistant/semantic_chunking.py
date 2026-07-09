@@ -2,19 +2,40 @@ import re
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
-from config import Config
 
 class SemanticChunking:
-    def __init__(self, breakpoint_percentile=95, buffer_size=1):
-        self.embeddings = OpenAIEmbeddings(openai_api_key=Config.OPENAI_KEY)
+    def __init__(self, api_key, breakpoint_percentile=95, buffer_size=1):
+        self.embeddings = OpenAIEmbeddings(openai_api_key=api_key, model="text-embedding-3-small")
         self.breakpoint_percentile = breakpoint_percentile
         self.buffer_size = buffer_size
 
+    def _split_into_sentences(self, text):
+        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+
+        if len(sentences) == 1 and len(text) > 100:
+            delimiters = r"([.!?\n;:])"
+            parts = re.split(delimiters, text.strip())
+
+            sentences = []
+            for i in range(0, len(parts) - 1, 2):
+                if parts[i].strip():
+                    sentences.append(parts[i].strip() + parts[i + 1])
+
+            if len(sentences) == 1:
+                sentences = [s.strip() + "," for s in text.split(",") if s.strip()]
+                if sentences:
+                    sentences[-1] = sentences[-1][:-1] + "."
+
+        sentences = [s for s in sentences if s.strip()]
+        if not sentences:
+            sentences = [text + "."]
+
+        return sentences
+
     def _process_sentences(self, text):
-      
-        sentences = [
-            {"sentence": s, "index": i} for i, s in enumerate(re.split(r"(?<=[.?!])\s+", text))
-        ]
+        raw_sentences = self._split_into_sentences(text)
+
+        sentences = [{"sentence": s, "index": i} for i, s in enumerate(raw_sentences)]
 
         for i, current in enumerate(sentences):
             context_range = range(
@@ -40,54 +61,21 @@ class SemanticChunking:
         return distances
 
     def chunk_text(self, text):
+        sentences = self._process_sentences(text)
 
-        single_sentences_list = re.split(r"(?<=[.?!])\s+", txt)
-        sentences = [
-            {"sentence": x, "index": i} for i, x in enumerate(single_sentences_list)
-        ]
-        sentences = SemanticChunking.combine_sentences(sentences)
-        oaiembeds = OpenAIEmbeddings(
-            openai_api_key= Config.OPENAI_KEY
-        )
+        if not sentences:
+            return [text]
 
-        embeddings = oaiembeds.embed_documents(
-            [x["combined_sentence"] for x in sentences]
-        )
+        distances = self._calculate_distances(sentences)
 
-        for i, sentence in enumerate(sentences):
-            sentence["combined_sentence_embedding"] = embeddings[i]
-
-        distances, sentences = SemanticChunking.calculate_cosine_distances(sentences)
-
-        breakpoint_percentile_threshold = 95
-        breakpoint_distance_threshold = np.percentile(
-            distances, breakpoint_percentile_threshold
-        )
-
-        num_distances_above_theshold = len(
-            [x for x in distances if x > breakpoint_distance_threshold]
-        )
-
-        indices_above_thresh = [
-            i for i, x in enumerate(distances) if x > breakpoint_distance_threshold
-        ]
-
-        start_index = 0
+        threshold = np.percentile(distances, self.breakpoint_percentile)
+        split_points = [i for i, d in enumerate(distances) if d > threshold]
 
         chunks = []
-
-        for index in indices_above_thresh:
-
-            end_index = index
-
-            group = sentences[start_index : end_index + 1]
-            combined_text = " ".join([d["sentence"] for d in group])
-            chunks.append(combined_text)
-
-            start_index = index + 1
-
-        if start_index < len(sentences):
-            combined_text = " ".join([d["sentence"] for d in sentences[start_index:]])
-            chunks.append(combined_text)
+        start = 0
+        for point in split_points + [len(sentences) - 1]:
+            chunk = " ".join(s["sentence"] for s in sentences[start : point + 1])
+            chunks.append(chunk)
+            start = point + 1
 
         return chunks

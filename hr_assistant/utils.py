@@ -28,6 +28,21 @@ class LLMHelper:
         return response.choices[0].message.content
 
     @staticmethod
+    async def get_db_stats(context):
+        response = client.chat.completions.create(
+            model=Config.LLM_MODEL_LOW,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+                      Il tuo compito è quello di descrivere in modo testuale, ma sintetico, le statistiche legate al database dei frammenti indicizzati da questo sistema. Ecco le informazioni necessarie per le statistiche da fornire: {context}
+                      """,
+                }
+            ],
+        )
+        return response.choices[0].message.content
+    
+    @staticmethod
     def create_prompt(context, question, candidate_name):
         return f"""
             Dato il seguente contesto: 
@@ -40,19 +55,3 @@ class LLMHelper:
             Assicurati di indicare il nome del candidato: [[[ {candidate_name} ]]].
             Argometa la scelta utilizzando il contenuto del testo individuato nel contesto.
         """
-    
-    
-    @staticmethod
-    async def get_db_stats(context):
-        response = client.chat.completions.create(
-            model=Config.LLM_MODEL_LOW,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""
-                      Il tuo compito è quello di descrivere in modo testuale, ma sintetico, le statistiche legate al database dei frammenti indicizzati da questo sistema. Dammi pure la percentuale di frammenti indicizzati rispetto al totale dei file presenti nel database. Ecco le informazioni necessarie per le statistiche da fornire: {context}
-                      """,
-                }
-            ],
-        )
-        return response.choices[0].message.content
